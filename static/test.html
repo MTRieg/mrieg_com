@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>KnockoutPhysics Visual Test</title>
+<style>
+  canvas { border: 1px solid #333; background: #eee; display: block; margin: 20px auto; }
+  body { font-family: sans-serif; text-align: center; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/planck-js@0.3.0/dist/planck.min.js"></script>
+<script type="module">
+
+import { KnockoutPhysics } from './physics.js';
+
+async function runTest() {
+  // Ask user for initial velocity and damping
+  const v1 = parseFloat(prompt("Enter velocity for piece 1:", "5"));
+  const damping = parseFloat(prompt("Enter linear damping:", "2"));
+
+  if (!isFinite(v1) || !isFinite(damping)) {
+    alert("Invalid input!");
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 1200;
+  canvas.height = 800;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  const kp = new KnockoutPhysics({ defaultLinearDamping: damping });
+  kp.running = true;
+
+  // Create 10 pieces side by side
+  const spacing = 50;
+  const ids = [];
+  for (let n = 1; n <= 10; n++) {
+    const id = kp.addPiece(50, n * 30, 10, 'red'); // y-offset to separate visually
+    kp.applyVelocity(id, n * v1, 0); // nth piece gets n*v1
+    ids.push(id);
+  }
+
+  // Draw all pieces
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const snapshot = kp.getBodiesSnapshot();
+    snapshot.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x + 50, p.y + 50, p.radius, 0, 2 * Math.PI); // offset so visible
+      ctx.fillStyle = p.color;
+      ctx.fill();
+    });
+  }
+
+  // Step simulation and redraw
+  function stepLoop() {
+    kp.update();
+    kp.stopIfStill();
+    draw();
+    if (kp.running) {
+      requestAnimationFrame(stepLoop);
+    } else {
+      // Simulation finished, output results
+      const results = kp.getBodiesSnapshot();
+      console.log("=== Results ===");
+      results.forEach(r => {
+        console.log(`Piece ${r.id}: velocity = ${r.vx.toFixed(2)} → distance = ${r.x.toFixed(3)}`);
+      });
+      alert("Simulation finished! Check console for results.");
+    }
+  }
+
+  stepLoop();
+}
+
+window.addEventListener('load', runTest);
+
+</script>
+</head>
+<body>
+<h1>KnockoutPhysics Visual Test</h1>
+<p>Pieces move left-to-right according to velocities. Check console for final distances.</p>
+</body>
+</html>
