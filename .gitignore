@@ -1,0 +1,7 @@
+# .gitignore
+# Ignore node modules
+node_modules/
+package-lock.json
+package.json
+__pycache__/
+test_results
