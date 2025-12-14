@@ -2,7 +2,7 @@
 import { gameId, playerId, players} from "./ui.js";
 
 const API_BASE = "/games/api";
-const UPDATE_INTERVAL = 30000; // 30 seconds between updates
+const UPDATE_INTERVAL = 60000; // 1 minute between updates
 
 export function renderLeaderboard(container) {
   const leaderboard = document.createElement("div");
@@ -18,27 +18,32 @@ export function renderLeaderboard(container) {
   let pieces = null;
   let playersWaiting = {};
 
-  async function updatePlayers() {
-    try {
-      const res = await fetch(`${API_BASE}/game_state?game_id=${gameId}`);
-      if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-      const data = await res.json();
+  async function updatePlayers(repeatCount = 1) {
+    for (let attempt = 1; attempt <= repeatCount; attempt++) {
+      try {
+        const res = await fetch(`${API_BASE}/game_state?game_id=${gameId}`);
+        if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+        const data = await res.json();
 
-      // Mutate the existing players object instead of replacing it
-        Object.keys(players).forEach(k => delete players[k]);       // clear
-        Object.assign(players, data.players || {});                 // repopulate
+        // Mutate the existing players object instead of replacing it
+          Object.keys(players).forEach(k => delete players[k]);       // clear
+          Object.assign(players, data.players || {});                 // repopulate
 
 
-      pieces = data.pieces || [];
-      playersWaiting = {};
-      for (const pid in players) {
-        if (players[pid].submitted_turn === "waiting") {
-          playersWaiting[pid] = true;
+        pieces = data.pieces || [];
+        playersWaiting = {};
+        for (const pid in players) {
+          if (players[pid].submitted_turn === "waiting") {
+            playersWaiting[pid] = true;
+          }
         }
+        updateLeaderboard();
+      } catch (err) {
+        console.error("Failed to update players:", err);
       }
-      updateLeaderboard();
-    } catch (err) {
-      console.error("Failed to update players:", err);
+      if (attempt < repeatCount) {
+        await new Promise(resolve => setTimeout(resolve, UPDATE_INTERVAL));
+      }
     }
   }
 
@@ -88,6 +93,5 @@ export function renderLeaderboard(container) {
     }
   }
 
-  updatePlayers();
-  setInterval(updatePlayers, UPDATE_INTERVAL);
+  updatePlayers(20);
 }

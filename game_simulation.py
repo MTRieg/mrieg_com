@@ -2,6 +2,7 @@
 import json
 import subprocess
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import random
 import math
 import shutil
@@ -56,7 +57,7 @@ def initialize_pieces(game, pieces_per_player=4):
 
     game["state"]["pieces"] = pieces
     game["state"]["turn_number"] = 0
-    game["state"]["last_turn_time"] = datetime.utcnow()
+    game["state"]["last_turn_time"] = datetime.now(ZoneInfo("America/Toronto"))
 
 
 
@@ -68,22 +69,28 @@ def advance_simulation(game):
     board_shrink = game["settings"]["board_shrink"]
     pieces_before = game["state"]["pieces"]
 
+    #filter out pieces where status is "out"
+    pieces_before_filtered = [p for p in pieces_before if p.get("status") != "out"]
+    pieces_before_out = [p for p in pieces_before if p.get("status") == "out"]
+
+
     # Run JS simulation
     try:
-        new_state = run_js_simulation(pieces_before, board_before=board_size, board_after=board_size-board_shrink)
+        new_state = run_js_simulation(pieces_before_filtered, board_before=board_size, board_after=board_size-board_shrink)
     except Exception as e:
         print(f"Error from python: {e}")
         raise RuntimeError("something went wrong")
         
 
-    game["state"]["pieces"] = new_state.get("pieces", [])
+    game["state"]["pieces"] = new_state.get("pieces", []) + pieces_before_out
     game["state"]["turn_number"] += 1
-    game["state"]["last_turn_time"] = datetime.utcnow()
+    game["state"]["last_turn_time"] = datetime.now(ZoneInfo("America/Toronto"))
     game["settings"]["board_size"] -= board_shrink
     
     for player in game["players"]:
-        del game["players"][player]["submitted_turn"] 
+        game["players"][player].pop("submitted_turn", None)
 
+    return
 
 
 

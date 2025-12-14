@@ -4,15 +4,14 @@
 console.log("ui_conway start");
 
 
-  const ui = await import("./ui.js?background=true"); 
+
+    import { canvas, physics, clientToWorld, arrowToVelocity, getBoardSize,
+      PIECE_RADIUS, submitMoves, fetchGameState, pendingArrows} from "./ui.js?background=true";
   // ui.canvas, ui.physics, ui.clientToWorld, etc.
 
   console.log("loaded conway");
 
-  const { canvas, physics, clientToWorld, arrowToVelocity, board_size,
-          PIECE_RADIUS, submitMoves, fetchGameState, pendingArrows} = ui;
-
-  const BOARD_HALF_SIZE = board_size / 2;
+  let board_half_size = getBoardSize() / 2;
 
   // ---------------------------------------------------------------------------
   // CONFIGURATION
@@ -46,44 +45,41 @@ console.log("ui_conway start");
 
   // Build random arrows for every piece
   function assignRandomMoves() {
+    
     pendingArrows.length = 0;
+    board_half_size = getBoardSize() / 2;//in case board size changed
+    console.log("board size:", getBoardSize(), "half size:", board_half_size);
 
     for (const { body, color, pieceid } of physics.bodies) {
       const pos = body.getPosition();
-
       // Pick random displacement for arrow
       let v = randomVector(RANDOM_FORCE_MIN, RANDOM_FORCE_MAX);
       
       
       // If pos + v is outside the board, try again, to discourage YOLOing
-      const max = BOARD_HALF_SIZE + 100;
+      const max = board_half_size + 50; //extra 50 so that they might actually go off-board
+      const board_size = getBoardSize();
       let endX = pos.x + v.x;
       let endY = pos.y + v.y;
 
       while (
-        (endX < -max || endX > max || endY < -max || endY > max)
+        ((endX < -max) || (endX > max) || (endY < -max) || (endY > max) 
+          || (endX + endY < -board_size) || (endX + endY > board_size)
+          || (endX - endY < -board_size) || (endX - endY > board_size))
+        //the last 4 checks are because, for a simulation, there's practically no reason to aim that far into the corner. 
       ) {
         v = randomVector(RANDOM_FORCE_MIN, RANDOM_FORCE_MAX);
         endX = pos.x + v.x;
         endY = pos.y + v.y;
       }
 
-      const arrowLength = Math.hypot(v.x, v.y);
 
-      // Cap at MAX_DRAG_DISTANCE if needed
-      let dx = v.x;
-      let dy = v.y;
-      if (arrowLength > MAX_DRAG_DISTANCE) {
-        const scale = MAX_DRAG_DISTANCE / arrowLength;
-        dx *= scale;
-        dy *= scale;
-      }
 
       pendingArrows.push({
         body,
         pieceid,
         dragStart: { x: pos.x, y: pos.y },
-        dragEnd:   { x: pos.x + dx, y: pos.y + dy },
+        dragEnd:   { x: endX, y: endY},
         color
       });
     }
@@ -103,12 +99,12 @@ console.log("ui_conway start");
   }
 
   function allPiecesSameColor() {
-    if (physics.bodies.length === 0) return false;
+    if (physics.bodies.length === 0) return true; //if there are no pieces, then all 0 pieces are the same color
     const first = physics.bodies[0].color;
     return physics.bodies.every(b => b.color === first);
   }
 
-  async function animateMoves() {
+  async function animateMoves(colorDisplayed = null) { //if colorDisplayed is set, only animate arrows of that color
     const oldPendingArrows = pendingArrows.map(a => ({
       body: a.body,
       pieceid: a.pieceid,
@@ -120,15 +116,18 @@ console.log("ui_conway start");
     for(let i=0; i<=100; i++){
       pendingArrows.length = 0;
       for (const arrow of oldPendingArrows){
-        const dx = arrow.dragEnd.x - arrow.dragStart.x;
-        const dy = arrow.dragEnd.y - arrow.dragStart.y;
-        pendingArrows.push({
-          body: arrow.body,
-          pieceid: arrow.pieceid,
-          dragStart: { x: arrow.dragStart.x, y: arrow.dragStart.y },
-          dragEnd:   { x: arrow.dragEnd.x + dx * i/100, y: arrow.dragEnd.y + dy * i/100 },
-          color: arrow.color
-        });
+        if (colorDisplayed == null || arrow.color === colorDisplayed){
+          const dx = arrow.dragEnd.x - arrow.dragStart.x;
+          const dy = arrow.dragEnd.y - arrow.dragStart.y;
+          pendingArrows.push({
+            body: arrow.body,
+            pieceid: arrow.pieceid,
+            dragStart: { x: arrow.dragStart.x, y: arrow.dragStart.y },
+            dragEnd:   { x: arrow.dragStart.x + dx * i/100, y: arrow.dragStart.y + dy * i/100 },
+            color: arrow.color
+          });
+        }
+        
       }
       await new Promise(r => setTimeout(r, 1));
     }
@@ -149,11 +148,38 @@ console.log("ui_conway start");
       console.log("waiting on pieces");
     }
 
+    let possibleColors = new Set(physics.bodies.map(b => b.color));
+    let displayColor = possibleColors.size > 0 ? [...possibleColors][Math.floor(Math.random() * possibleColors.size)] : null;
+    //pick a random color to be "your color" for this demo
+    //I originally had this as always "red", but that might make people assume red pieces are always theirs
+
     while (true) {
       // 1. Assign random moves to all pieces
       assignRandomMoves();
 
-      await animateMoves();
+      
+      //only do the next line if there are pieces of the special color to display:
+      if(physics.bodies.some(b => b.color === displayColor)){
+        let oldPendingArrows = pendingArrows.map(a => ({...a})); //deep copy
+
+        await animateMoves(displayColor); //show special color arrows first
+        //to simulate one player making their moves before they see everyone else's moves
+        //color choice is arbitrary here
+
+        await new Promise(r => setTimeout(r, ARROW_SHOW_TIME));
+
+        pendingArrows.length = 0;
+        for (const arrow of oldPendingArrows) {
+          pendingArrows.push({...arrow});
+        }
+      }else{
+        console.log("no red pieces to display first");
+      }
+        
+      
+      
+
+      await animateMoves(null);
 
       
       // 2. Allow arrows to show briefly
@@ -181,6 +207,7 @@ console.log("ui_conway start");
 
       // Otherwise loop continues for next demo round
       pendingArrows.length = 0;
+      
     }
   }
 

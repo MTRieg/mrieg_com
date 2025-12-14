@@ -152,6 +152,9 @@
     const urlParams = new URLSearchParams(window.location.search);
     const existingGameId = urlParams.get('game_id');
     const existingPlayerId = urlParams.get('player_id');
+
+    const pollingDelay = 5000; // 5 seconds between polls
+    const maxPollingAttempts = 60; // number of attempts to fetch player list on join
     
     if (existingGameId && existingPlayerId) {
         gameId = existingGameId;
@@ -253,76 +256,81 @@
 
 
     // --- Poll the server for player updates ---
-    async function updatePlayerList() {
-    try {
-      const res = await fetch(`/games/api/game_state?game_id=${encodeURIComponent(gameId)}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    async function updatePlayerList(repeatCount=1) {
+    for(let attempt=1;attempt<=repeatCount;attempt++){
+      try {
+        const res = await fetch(`/games/api/game_state?game_id=${encodeURIComponent(gameId)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const data = await res.json();
-      if (data.error) {
-        console.warn("Game state error:", data.error);
-        return;
-      }
-
-      playerListDiv.innerHTML = "";
-
-      const rawPlayers = data.players || data.pieces || [];
-
-      // Normalize into [id, playerData] pairs
-      let players = [];
-      if (Array.isArray(rawPlayers)) {
-        // If it's an array, use index as id (fallback)
-        players = rawPlayers.map((p, i) => [String(i), p]);
-      } else if (typeof rawPlayers === "object" && rawPlayers !== null) {
-        players = Object.entries(rawPlayers); // [id, playerData]
-      }
-
-      if (players.length > 0) {
-        for (const [id, p] of players) {
-          const div = document.createElement("div");
-          div.textContent = `- ${p.name || id}`;
-
-          div.addEventListener("mouseover", () => {
-            if (creator){
-              div.style.textDecoration = "line-through";
-            }
-          });
-          div.addEventListener("mouseout", () => {
-              div.style.textDecoration = "none";
-          });
-          div.addEventListener("click", async() => {
-            await DeletePlayer(id);
-            div.remove;
-          });
-
-
-          // Update local player info if this is our player
-          if (id === playerId) {
-            playerNameInput.value = p.name; // update input field
-            playerName = p.name;             // update local variable
-          }
-
-          /*
-          // Optional: show submitted turn
-          if (p.submitted_turn != null) {
-            div.textContent += ` (submitted: ${p.submitted_turn})`;
-          }
-            */
-
-          playerListDiv.appendChild(div);
+        const data = await res.json();
+        if (data.error) {
+          console.warn("Game state error:", data.error);
+          return;
         }
-      } else {
-        playerListDiv.textContent = "(No players yet)";
+
+        playerListDiv.innerHTML = "";
+
+        const rawPlayers = data.players || data.pieces || [];
+
+        // Normalize into [id, playerData] pairs
+        let players = [];
+        if (Array.isArray(rawPlayers)) {
+          // If it's an array, use index as id (fallback)
+          players = rawPlayers.map((p, i) => [String(i), p]);
+        } else if (typeof rawPlayers === "object" && rawPlayers !== null) {
+          players = Object.entries(rawPlayers); // [id, playerData]
+        }
+
+        if (players.length > 0) {
+          for (const [id, p] of players) {
+            const div = document.createElement("div");
+            div.textContent = `- ${p.name || id}`;
+
+            div.addEventListener("mouseover", () => {
+              if (creator){
+                div.style.textDecoration = "line-through";
+              }
+            });
+            div.addEventListener("mouseout", () => {
+                div.style.textDecoration = "none";
+            });
+            div.addEventListener("click", async() => {
+              await DeletePlayer(id);
+              div.remove;
+            });
+
+
+            // Update local player info if this is our player
+            if (id === playerId) {
+              playerNameInput.value = p.name; // update input field
+              playerName = p.name;             // update local variable
+            }
+
+            /*
+            // Optional: show submitted turn
+            if (p.submitted_turn != null) {
+              div.textContent += ` (submitted: ${p.submitted_turn})`;
+            }
+              */
+
+            playerListDiv.appendChild(div);
+          }
+        } else {
+          playerListDiv.textContent = "(No players yet)";
+        }
+
+        // Determine if current player is creator
+        creator = playerName === data.creator;
+
+        startInfo.textContent = "Game starts at: " + (data.next_turn_deadline || "soon");
+
+      } catch (err) {
+        console.error("Error updating player list:", err);
+        playerListDiv.textContent = "(Failed to load players)";
       }
-
-      // Determine if current player is creator
-      creator = playerName === data.creator;
-
-      startInfo.textContent = "Game starts at: " + (data.next_turn_deadline || "soon");
-
-    } catch (err) {
-      console.error("Error updating player list:", err);
-      playerListDiv.textContent = "(Failed to load players)";
+      if(attempt<repeatCount){
+        await new Promise(resolve => setTimeout(resolve, 1000)); // wait 1s before next repeat
+      }
     }
   }
 
@@ -336,7 +344,7 @@
   }
 
     function startPolling() {
-      setInterval(updatePlayerList, 60000); // refresh every 5s
+      setInterval(updatePlayerList, pollingDelay, maxPollingAttempts); 
     }
 
     // Optional: clicking invite link copies it

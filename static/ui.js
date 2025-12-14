@@ -20,8 +20,9 @@ const urlParams = new URLSearchParams(window.location.search);
 
 // Game constants
 const DEFAULT_BOARD_SIZE = 800;
+const DEFAULT_DISPLAY_SIZE = 1000; // the size used for scaling calclations (always larger than board size)
 const DEFAULT_BOARD_SHRINK = 50;
-const COLORS = ["red", "blue", "green", "yellow", "grey", "black", "purple", "orange", "magenta", "gold"];
+const COLORS = ["red", "blue", "green", "yellow", "grey", "maroon", "purple", "orange", "magenta", "gold"];
 const PIECE_RADIUS = 30;
 
 // Game state
@@ -39,13 +40,18 @@ function setPlayerId(pid){
     playerId = pid;
 }
 
+// Getter for board size so other modules can read the current value.
+function getBoardSize() {
+  return board_size;
+}
+
 // Canvas setup
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 // Display state
 let devicePixelRatio = window.devicePixelRatio || 1;
-let displayScale = 1;
+let displayScale = 1; //will be overwritten in resizeCanvas
 let CENTER_X = 0;
 let CENTER_Y = 0;
 let WIDTH = 0;
@@ -54,13 +60,19 @@ let HEIGHT = 0;
 // Physics
 const physics = new KnockoutPhysics();
 
+//when loading a replay, this is to help make adjustments from what the local simulation calculated to what the server calculated.
+//should be negligeble, but important nonetheless, and if it's not negligeble then we have bigger problems.
+
+let server_pieces = null;
+let server_players = null;
+
 
    //removing this because it'll be easier to just store everything in cookies
 // Persist player ID if provided in URL
 if (urlParams.get("player_id")) {
     localStorage.setItem("player_id", playerId);
 }
-    
+
 
 // --- Arrow <-> velocity conversion ---
 // tweak this factor after testing with the physics engine
@@ -113,7 +125,7 @@ function resizeCanvas() {
         const maxRenderSize = Math.min(WIDTH, HEIGHT);
 
         // Compute scale so the logical board_size fits into maxRenderSize
-        displayScale = maxRenderSize / DEFAULT_BOARD_SIZE;
+        displayScale = maxRenderSize / (DEFAULT_DISPLAY_SIZE);
         // --------------------------------
 
         
@@ -196,11 +208,8 @@ async function fetchGameState(ReplayLastTurn=false) {
     }, 3000);
     //once physics stops, clear the board and place the new pieces
     
-    
-    physics.on("stopped", () => {
-        physics.clearPieces();
-        place_pieces(data.pieces, data.players);
-    });
+    server_pieces = data.pieces;
+    server_players = data.players;
     
     return;
   } 
@@ -225,6 +234,9 @@ async function place_pieces(pieces, players){
   console.log("Placing pieces:", pieces, " with players:", players);
 
    pieces.forEach(p => {
+      if (p.status && p.status === "out") {
+        return; // skip pieces that are out
+      }
       const ownerColor =
         players?.[p.owner]?.color || "#FFFF00"; // fallback if missing
       physics.addPiece(p.x, p.y, p.pieceid, PIECE_RADIUS, ownerColor);
@@ -236,6 +248,7 @@ async function place_pieces(pieces, players){
           body,
           dragStart: { x: p.x, y: p.y },
           dragEnd: { x: p.x + d.x, y: p.y + d.y },
+          pieceid: p.pieceid,
           color
         };
         pendingArrows.push(arrow);
@@ -412,8 +425,7 @@ for (const arrow of pendingArrows) {
     ctx.fillStyle = arrow.color;
     ctx.fill();
 }
-
-  ctx.restore();
+//sanity check results: a line from 0,0 to -396,0 (when board size is 800) goes from origin to pixels away from the left edge.
 }
 
 // --- Game loop ---
@@ -426,7 +438,14 @@ function loop() {
             board_size -= board_shrink;
             console.log(physics.getBodiesSnapshot());
             // reset canvas size
-            resizeCanvas
+            resizeCanvas();
+            if (server_pieces && server_players){
+                physics.clearPieces();
+                console.log("Placing new pieces:", server_pieces, server_players);
+                place_pieces(server_pieces, server_players);
+                server_pieces = null;
+                server_players = null;            
+            }
         }
         
         physics.removePiecesOutside(board_size / 2);
@@ -442,6 +461,6 @@ loop();
 
 // export shared symbols for ui_buttons.js and ui_leaderboard.js
 export { canvas, pendingArrows, physics, gameId, playerId, PIECE_RADIUS, board_size, setPlayerId,
-          arrowToVelocity, clientToWorld, getPlayerIdFromCookie, submitMoves, fetchGameState};
+          getBoardSize, arrowToVelocity, clientToWorld, getPlayerIdFromCookie, submitMoves, fetchGameState};
 
 

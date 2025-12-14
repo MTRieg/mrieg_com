@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from game_simulation import GAMES, initialize_pieces, advance_simulation  # <-- import shared dictionary
 import json
 import random, string
@@ -65,10 +66,10 @@ def serve_knockout_page(request: Request):
 
         # Check that the game has a start_time and that it's in the past or now
         if start_time and isinstance(start_time, datetime):
-            print(start_time, datetime.utcnow())
-            if start_time <= datetime.utcnow():
+            print(start_time, datetime.now(ZoneInfo("America/Toronto")))
+            if start_time <= datetime.now(ZoneInfo("America/Toronto")):
                 if(len(game["state"]["pieces"]) == 0):
-                    start_game(game, datetime.utcnow())
+                    start_game(game, datetime.now(ZoneInfo("America/Toronto")))
                 filename = "static/game.html"
                 
 
@@ -108,7 +109,7 @@ async def start_or_run_game(game_id: str, player_id: str):
         raise HTTPException(status_code=404, detail="Game not found")
 
     game = GAMES[game_id]
-    now = datetime.utcnow()
+    now = datetime.now(ZoneInfo("America/Toronto"))
     start_time = game.get("start_time")
 
     if player_id not in game["players"]: 
@@ -126,7 +127,9 @@ async def start_or_run_game(game_id: str, player_id: str):
     return run_game(game)
 
 
-def start_game(game, now=datetime.utcnow()):
+def start_game(game, now=None):
+    if now is None:
+        now = datetime.now(ZoneInfo("America/Toronto"))
     initialize_pieces(game)
     initialize_colors(game)
     game["start_time"] = now  # mark as started
@@ -170,7 +173,7 @@ def initialize_colors(game):
 @router.post("/api/create_game")
 async def create_game(req: CreateGameRequest):
     game_id = create_id()
-    start_time = datetime.utcnow() + timedelta(seconds=req.start_delay)
+    start_time = datetime.now(ZoneInfo("America/Toronto")) + timedelta(seconds=req.start_delay)
     settings = req.settings or GameSettings(turn_interval=req.turn_interval)
     
 
@@ -333,6 +336,10 @@ async def submit_turn(req: SubmitTurnRequest):
     if not player:
         return JSONResponse({"error": "Player not found"}, status_code=404)
 
+    if any("pieceid" not in item for item in req.actions):
+        print("There was a mistake somewhere, the actions did not have piece ids ", player);
+    
+
     player["submitted_turn"] = {
         "turn_number": req.turn_number,
         "actions": req.actions,
@@ -377,11 +384,13 @@ async def apply_submitted_moves_by_game_id(game_id):
         if not submitted:
             continue
         if submitted.get("turn_number") != current_turn:
+            submitted = None;
             continue
 
         for action in submitted.get("actions", []):
             pieceid = action.get("pieceid")
             if pieceid is None:
+                action = None;
                 continue
 
             piece = pieces_by_id.get(pieceid)
