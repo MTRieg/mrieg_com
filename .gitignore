@@ -4,4 +4,15 @@ node_modules/
 package-lock.json
 package.json
 __pycache__/
+venv/
 test_results
+todo.txt
+static/depr_lobby_minimal.html
+static/lobby_copy.html
+static/lobby_archive
+static/game_gif.html
+static/lobby_archive.html
+todo_done_server.txt
+game_routes.py
+*.json
+

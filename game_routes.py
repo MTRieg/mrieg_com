@@ -4,12 +4,15 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from game_simulation import GAMES, initialize_pieces, advance_simulation  # <-- import shared dictionary
+from game_simulation import GAMES, PLAYERS, initialize_pieces, advance_simulation  # <-- import shared dictionary
+from passwords import set_game_password, set_player_password, create_token, read_token, revoke_token
 import json
 import random, string
-import regex
+import re
+
 
 router = APIRouter()
+
 
 
 # --- Pydantic Models ---
@@ -20,14 +23,19 @@ class GameSettings(BaseModel):
     turn_interval: int = 86400  # seconds
 
 class CreateGameRequest(BaseModel):
-    creator_name: str
+    game_id: str
+    game_password: str
     start_delay: int
     turn_interval: int
     settings: GameSettings | None = None
 
+class CreatePlayerRequest(BaseModel):
+    player_id: str
+    player_password: str
+
 class JoinGameRequest(BaseModel):
     game_id: str
-    player_name: str
+    player_id: str
 
 class LeaveGameRequest(BaseModel):
     game_id: str
@@ -90,6 +98,9 @@ def create_id():
     digits = ''.join(random.choices(string.digits, k=4))
     letters = ''.join(random.choices(string.ascii_lowercase, k=4))
     return (digits + letters)
+
+
+
 
 
 
@@ -172,13 +183,17 @@ def initialize_colors(game):
 
 @router.post("/api/create_game")
 async def create_game(req: CreateGameRequest):
-    game_id = create_id()
+    if not is_valid_name_regex(req.game_id):
+        return JSONResponse({"error": "Invalid game ID"}, status_code=400)
+
+    session_token = set_game_password(req.game_id, req.game_password)
+    if(session_token is None):
+        return JSONResponse({"error": "Game ID already exists"}, status_code=400)
     start_time = datetime.now(ZoneInfo("America/Toronto")) + timedelta(seconds=req.start_delay)
     settings = req.settings or GameSettings(turn_interval=req.turn_interval)
     
 
-    GAMES[game_id] = {
-        "creator": req.creator_name,
+    GAMES[req.game_id] = {
         "settings": settings.dict(),
         "players": {},
         "state": {
@@ -190,30 +205,63 @@ async def create_game(req: CreateGameRequest):
     }
 
     return {
-        "game_id": game_id,
-        "invite_url": f"https://mrieg.com/games/knockout?game={game_id}",
-        "start_time": start_time.isoformat()
+        "game_id": req.game_id,
+        "invite_url": f"https://mrieg.com/games/knockout?game={req.game_id}",
+        "start_time": start_time.isoformat(),
+        "session_token": session_token
     }
+
+@router.post("/api/create_player")
+async def create_player(req: CreatePlayerRequest):
+    if not is_valid_name_regex(req.player_id):
+        return JSONResponse({"error": "Invalid player ID"}, status_code=400)
+
+    session_token = set_player_password(req.player_id, req.player_password)
+    if(session_token is None):
+        return JSONResponse({"error": "Player ID already exists"}, status_code=400)
+    
+
+    PLAYERS[req.player_id] = {}
+
+    return {
+        "player_id": req.player_id
+    }
+
+
+
 
 
 @router.post("/api/join_game")
 async def join_game(req: JoinGameRequest):
+    # todo: why the heck is it using "session_token"
+
+    if (req.cookies.get("session_token")):
+        token_data = read_token(req.cookies.get("session_token"))
+        if token_data is None:
+            return JSONResponse({"error": "Invalid session token"}, status_code=403)
+        if token_data["game_id"] != req.game_id:
+            return JSONResponse({"error": "Session token does not match game ID"}, status_code=403)
+        #if token_data["player_id"] is not None:
+            # this should not happen as we are joining a game, not rejoining
+            # req.player_id = token_data["player_id"]
     game = GAMES.get(req.game_id)
+
+
     if not game:
         return JSONResponse({"error": "Game not found"}, status_code=404)
+    
 
-    #if the name you give is already in the game, return a welcome back message and give them their player id cookie
-    if req.player_name in (list(p["name"] for p in game["players"].values())):
-        player_id = next((pid for pid, p in game["players"].items() if p["name"] == req.player_name), None)
-        response = JSONResponse({"player_id": player_id, "message": "Welcome back!"}, status_code=202)
-        if player_id:
-            return append_game_cookie(response, req.game_id, player_id)
+    if req.player_id in (game["players"]):
+        response = JSONResponse("Player ID already in use in this game", status_code=403)
+
+        # once I update the frontend to use rejoin API, this should be an error instead
+        response = JSONResponse({"player_id": req.player_id, "message": "Welcome back!"}, status_code=202)
+        if req.player_id:
+            return append_game_cookie(response, req.game_id, req.player_id)
 
     if len(game["players"]) >= game["settings"]["max_players"]:
         return JSONResponse({"error": "Game full"}, status_code=403)
     
-    if not is_valid_name_regex(req.player_name):
-        return JSONResponse({"error": "Invalid player name"}, status_code=400)
     
     player_id = create_id()
     game["players"][player_id] = {"name": req.player_name, "submitted_turn": None}
@@ -228,6 +276,20 @@ async def join_game(req: JoinGameRequest):
             "board_state": game["state"]["pieces"]
         }
     }
+
+@router.post("/api/rejoin_game")
+async def rejoin_game(req: JoinGameRequest):
+    game = GAMES.get(req.game_id)
+    if not game:
+        return JSONResponse({"error": "Game not found"}, status_code=404)
+
+    #if the name you give is already in the game, return a welcome back message and give them their player id cookie
+    if req.player_name in (list(p["name"] for p in game["players"].values())):
+        player_id = next((pid for pid, p in game["players"].items() if p["name"] == req.player_name), None)
+        response = JSONResponse({"player_id": player_id, "message": "Welcome back!"}, status_code=202)
+        if player_id:
+            return append_game_cookie(response, req.game_id, player_id)
+    return JSONResponse({"error": "Player name not found in game"}, status_code=404)
 
 @router.post("/api/leave_game")
 async def leave_game(req: LeaveGameRequest):
@@ -268,7 +330,7 @@ async def delete_game(req: DeleteGameRequest):
 
 
 # Allow: any Unicode letter/mark/number, spaces, plus a small, explicit set of name punctuation
-VALID_NAME_RE = regex.compile(r"^[\p{L}\p{M}\p{N} .'\-`’·]+$", flags=regex.UNICODE)
+VALID_NAME_RE = re.compile(r"^[\p{L}\p{M}\p{N} .'\-`’·]+$", flags=re.UNICODE)
 
 def is_valid_name_regex(s: str) -> bool:
     if not s: 
@@ -384,13 +446,13 @@ async def apply_submitted_moves_by_game_id(game_id):
         if not submitted:
             continue
         if submitted.get("turn_number") != current_turn:
-            submitted = None;
+            submitted = None
             continue
 
         for action in submitted.get("actions", []):
             pieceid = action.get("pieceid")
             if pieceid is None:
-                action = None;
+                action = None
                 continue
 
             piece = pieces_by_id.get(pieceid)

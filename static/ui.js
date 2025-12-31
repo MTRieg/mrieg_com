@@ -34,7 +34,7 @@ let playerId = urlParams.get("player_id") || null;
 let currentTurn = 0;
 const pendingArrows = [];
 
-export let players = {};
+let players = {};
 
 function setPlayerId(pid){
     playerId = pid;
@@ -436,7 +436,6 @@ function loop() {
         
         if (!physics.running) {
             board_size -= board_shrink;
-            console.log(physics.getBodiesSnapshot());
             // reset canvas size
             resizeCanvas();
             if (server_pieces && server_players){
@@ -460,7 +459,7 @@ function loop() {
 loop();
 
 // export shared symbols for ui_buttons.js and ui_leaderboard.js
-export { canvas, pendingArrows, physics, gameId, playerId, PIECE_RADIUS, board_size, setPlayerId,
+export { canvas, pendingArrows, physics, gameId, playerId, PIECE_RADIUS, board_size, players, setPlayerId,
           getBoardSize, arrowToVelocity, clientToWorld, getPlayerIdFromCookie, submitMoves, fetchGameState};
 
 

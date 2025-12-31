@@ -1,5 +1,5 @@
 // Import shared variables from ui.js (must be a module)
-import { gameId, playerId, players} from "./ui.js";
+import { gameId, playerId, players, setPlayerId} from "./ui.js";
 
 const API_BASE = "/games/api";
 const UPDATE_INTERVAL = 60000; // 1 minute between updates
@@ -47,6 +47,49 @@ export function renderLeaderboard(container) {
     }
   }
 
+  async function handlePlayerNameClick(clickedPlayerId) {
+    // Only allow clicking if current player doesn't have a player id set
+    if (playerId) {
+      console.log("Already have a player id set");
+      return;
+    }
+
+    // Prompt for password
+    const password = prompt(`Enter password for player "${clickedPlayerId}":`);
+    if (!password) {
+      return; // User cancelled
+    }
+
+    try {
+      // Request session cookie with player credentials
+      const res = await fetch(`${API_BASE}/create_session_cookie`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          player_id: clickedPlayerId,
+          player_password: password,
+          game_id: null,
+          game_password: null,
+        }),
+        credentials: "same-origin",
+      });
+
+      if (!res.ok) {
+        alert("Invalid password for this player.");
+        console.error("Failed to create session cookie:", res.status);
+        return;
+      }
+
+      // Successfully authenticated, set playerId and reload leaderboard
+      setPlayerId(clickedPlayerId);
+      console.log("Successfully joined as player:", clickedPlayerId);
+      updateLeaderboard();
+    } catch (err) {
+      console.error("Error during player login:", err);
+      alert("An error occurred while logging in.");
+    }
+  }
+
   function updateLeaderboard() {
     if (!players) return;
     leaderboard.textContent = "";
@@ -69,9 +112,6 @@ export function renderLeaderboard(container) {
     }
     
 
-
-    
-
     for (const pid in players) {
       const player = players[pid];
       const score = pieceCounts[pid] || 0;
@@ -88,6 +128,12 @@ export function renderLeaderboard(container) {
         marginRight: "4px",
       });
       row.prepend(colorBox);
+
+      // Add click handler if player doesn't have a player id set
+      if (!playerId) {
+        row.style.cursor = "pointer";
+        row.addEventListener("click", () => handlePlayerNameClick(pid));
+      }
 
       leaderboard.appendChild(row);
     }

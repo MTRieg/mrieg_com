@@ -1,50 +1,75 @@
-#game_initial.py
+import json
 from datetime import datetime
+from pathlib import Path
+import bcrypt
+def object_parser(filename):
+    """Return a parser function that knows which file it's parsing."""
+    def parser(dct):
+        """Convert ISO format datetime strings to datetime objects in specific fields."""
+        if filename == "games.json":
+            if "start_time" in dct and isinstance(dct["start_time"], str):
+                try:
+                    dct["start_time"] = datetime.fromisoformat(dct["start_time"])
+                except (ValueError, AttributeError):
+                    pass
+            
+            if "state" in dct and isinstance(dct["state"], dict):
+                if "last_turn_time" in dct["state"] and isinstance(dct["state"]["last_turn_time"], str):
+                    try:
+                        dct["state"]["last_turn_time"] = datetime.fromisoformat(dct["state"]["last_turn_time"])
+                    except (ValueError, AttributeError):
+                        pass
+                
+                if "old_last_turn_time" in dct["state"] and isinstance(dct["state"]["old_last_turn_time"], str):
+                    try:
+                        dct["state"]["old_last_turn_time"] = datetime.fromisoformat(dct["state"]["old_last_turn_time"])
+                    except (ValueError, AttributeError):
+                        pass
+        
+        elif filename == "session_tokens.json":
+            if "expires_at" in dct and isinstance(dct["expires_at"], str):
+                try:
+                    dct["expires_at"] = datetime.fromisoformat(dct["expires_at"])
+                except (ValueError, AttributeError):
+                    pass
+        
+        elif filename == "players.json":
+            if "date_created" in dct and isinstance(dct["date_created"], str):
+                try:
+                    dct["date_created"] = datetime.fromisoformat(dct["date_created"])
+                except (ValueError, AttributeError):
+                    pass
+        
+        elif filename in ["game_passwords.json", "player_passwords.json"]:
+            # Convert bcrypt byte strings back to bytes
+            if "salt" in dct and isinstance(dct["salt"], str):
+                try:
+                    dct["salt"] = eval(dct["salt"])
+                except:
+                    pass
+            
+            if "hashed" in dct and isinstance(dct["hashed"], str):
+                try:
+                    dct["hashed"] = eval(dct["hashed"])
+                except:
+                    pass
+        
+        return dct
+    return parser
 
-GAMES_INITIAL = {
-    "db0cfa34": {
-        "creator": "anon",
-        "settings": {
-            "max_players": 10,
-            "board_size": 800,
-            "board_shrink": 50,
-            "turn_interval": 86400,
-        },
-        "players": {
-            "55eb1155": {
-                "name": "anon",
-                "submitted_turn": None,
-                "color": "#FF0000",
-            },
-            "adbc9e96": {
-                "name": "mark",
-                "submitted_turn": {
-                    "turn_number": 1,
-                    "actions": [
-                        {"pieceid": 4, "vx": 284.37012469069344, "vy": -46.639734398471745},
-                        {"pieceid": 6, "vx": 539.0395524506522, "vy": -62.37063131222186},
-                        {"pieceid": 7, "vx": 602.2985881344641, "vy": -259.09700179458315},
-                        {"pieceid": 5, "vx": -395.28181041422033, "vy": -249.0655915290617},
-                    ],
-                },
-                "color": "#00FF00",
-            },
-        },
-        "state": {
-            "turn_number": 3,
-            "last_turn_time": datetime.fromisoformat("2025-10-29T22:34:22.270425"),
-            "pieces": [
-                {"owner": "55eb1155", "pieceid": 0, "x": 107.09103974961678, "y": 342.32851910531184, "vx": 0, "vy": 0},
-                {"owner": "55eb1155", "pieceid": 1, "x": 68.94682717001216, "y": -46.023124588627645, "vx": 0, "vy": 0},
-                {"owner": "55eb1155", "pieceid": 2, "x": -192.9158714026313, "y": 29.52752136219311, "vx": 0, "vy": 0},
-                {"owner": "55eb1155", "pieceid": 3, "x": -238.2281308217178, "y": 318.1080708580444, "vx": 0, "vy": 0},
-                {"owner": "adbc9e96", "pieceid": 4, "x": -300.2733472600038, "y": -3.8209714309518916, "vx": 0, "vy": 0},
-                {"owner": "adbc9e96", "pieceid": 5, "x": 284.5417979557438, "y": 249.62218540945918, "vx": 0, "vy": 0},
-                {"owner": "adbc9e96", "pieceid": 6, "x": -306.1432018177364, "y": 85.23175398712351, "vx": 0, "vy": 0},
-                {"owner": "adbc9e96", "pieceid": 7, "x": -369.23835257720066, "y": 263.07583702851235, "vx": 0, "vy": 0},
-            ],
-        },
-        "start_time": datetime.fromisoformat("2025-10-29T22:34:22.270220"),
-    }
-}
 
+def load_from_file(filename, default):
+    """Load data from JSON file, return default if file doesn't exist."""
+    try:
+        if Path(filename).exists():
+            with open(filename, "r") as f:
+                return json.load(f, object_hook=object_parser(filename))
+    except (json.JSONDecodeError, IOError):
+        pass
+    return default
+
+GAMES_INITIAL = load_from_file("games.json", dict())
+PLAYERS_INITIAL = load_from_file("players.json", dict())
+GAME_PASSWORDS_INITIAL = load_from_file("game_passwords.json", dict())
+PLAYER_PASSWORDS_INITIAL = load_from_file("player_passwords.json", dict())
+SESSION_TOKENS_INITIAL = load_from_file("session_tokens.json", dict())

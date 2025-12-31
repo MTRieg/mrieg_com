@@ -7,9 +7,10 @@ import random
 import math
 import shutil
 import os
-from game_initial import GAMES_INITIAL
+from game_initial import GAMES_INITIAL, PLAYERS_INITIAL
 
 GAMES = GAMES_INITIAL  # example game for testing
+PLAYERS = PLAYERS_INITIAL  # example players for testing
 
 
 # --- Helper: initialize starting positions ---

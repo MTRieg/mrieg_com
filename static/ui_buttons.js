@@ -20,6 +20,8 @@ export function createButtonPanel(container) {
     submitMoves(pendingArrows);
   });
 
+  //functionality replaced by auto-rejoin and leaderboard click-to-rejoin
+  /*
   const btnRejoin = document.createElement("button");
   btnRejoin.textContent = "Rejoin Game";
   btnRejoin.addEventListener("click", () => {
@@ -51,6 +53,7 @@ export function createButtonPanel(container) {
       alert(`Rejoined as ${name}`);
       window.location.reload();
     });
+    */
 
 
   const btnReset = document.createElement("button");
@@ -74,10 +77,10 @@ export function createButtonPanel(container) {
       const data = await response.json();
       if (response.ok) {
         alert("Press ok to run game \nIf you did not mean to skip to next turn, refresh or close this tab.");
-        const nextResponse = await fetch(`${API_BASE}/start_or_run_game?game_id=${gameId}&player_id=${playerId}`, {
+        const nextResponse = await fetch(`${API_BASE}/run_game?game_id=${gameId}&player_id=${playerId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ game_id: gameId })
+          body: JSON.stringify({ game_id: gameId, player_id: playerId})
         });
         const nextData = await nextResponse.json();
         if (nextResponse.ok) {alert("Success, reload page to see results");}
@@ -93,7 +96,7 @@ export function createButtonPanel(container) {
 
   panel.appendChild(btnOther);
   panel.appendChild(btnReset);
-  panel.appendChild(btnRejoin);
+  // panel.appendChild(btnRejoin);
   panel.appendChild(btnRunTurn);
 
   container.appendChild(panel);

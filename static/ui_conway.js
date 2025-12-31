@@ -22,7 +22,7 @@ console.log("ui_conway start");
 
   // How strong the random pushes are (in world units)
   const RANDOM_FORCE_MIN = 50;
-  const RANDOM_FORCE_MAX = 300;
+  const RANDOM_FORCE_MAX = 500;
 
   // If true, auto-submit to server instead of purely running local demos
   const AUTO_SUBMIT = false;
@@ -48,7 +48,6 @@ console.log("ui_conway start");
     
     pendingArrows.length = 0;
     board_half_size = getBoardSize() / 2;//in case board size changed
-    console.log("board size:", getBoardSize(), "half size:", board_half_size);
 
     for (const { body, color, pieceid } of physics.bodies) {
       const pos = body.getPosition();
@@ -57,7 +56,7 @@ console.log("ui_conway start");
       
       
       // If pos + v is outside the board, try again, to discourage YOLOing
-      const max = board_half_size + 50; //extra 50 so that they might actually go off-board
+      const max = board_half_size + 100; //extra 100 so that they might actually go off-board
       const board_size = getBoardSize();
       let endX = pos.x + v.x;
       let endY = pos.y + v.y;
@@ -83,8 +82,6 @@ console.log("ui_conway start");
         color
       });
     }
-
-    console.log("Random moves assigned:", pendingArrows);
   }
 
   // Apply velocities to pieces

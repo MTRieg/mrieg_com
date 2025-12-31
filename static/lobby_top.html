@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Knockout Lobby</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle, #202020, #000);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    #lobby {
+      background: rgba(0,0,0, 0.85);
+      border: 1px solid #444;
+      border-radius: 12px;
+      padding: 24px 32px;
+      max-width: 480px;
+      text-align: center;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    }
+
+    input, button {
+      margin-top: 10px;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+
+    input {
+      width: 80%;
+    }
+
+    button {
+      background: #4caf50;
+      color: white;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #45a049;
+    }
+
+    #playerList {
+      margin-top: 15px;
+      text-align: left;
+      background: rgba(255,255,255,0.05);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    .small {
+      font-size: 0.85rem;
+      color: #bbb;
+    }
+
+    #inviteLink {
+      color: #9ef;
+      word-wrap: break-word;
+      cursor: pointer;
+    }
+
+    /* Fullscreen background container */
+    #gameBackground {
+      position: fixed;
+      inset: 0;
+      z-index: 0;     /* behind lobby */
+      overflow: hidden;
+      pointer-events: none; /* background not interactive */
+    }
+
+    #gameBackground canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+
+    /* Ensure lobby stays above */
+    #lobby {
+      position: relative;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <!-- BACKGROUND: Conway/board UI -->
+  <div id="gameBackground">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <!-- Physics + UI scripts for background -->
+  <script src="https://cdn.jsdelivr.net/npm/planck-js@0.3.0/dist/planck.min.js"></script>
+  <script type="module" src="/static/physics.js"></script>
+  <script type="module">
+    import("/static/ui.js?background=true");
+  </script>
+
+  <!-- Lobby UI -->
+  <div id="lobby">
+    <h2>Knockout Game Lobby</h2>
+    <div id="setupSection">
+      <input id="name" placeholder="Enter Game Name"/><br />
+      <input id="password" placeholder="Enter Game Password"/><br />
+      <button id="createBtn">Create Game</button>
+      <button id="joinBtn">Join Existing Game</button>
+    </div>
+
+    <div id="infoSection" style="display:none;">
+      <p>Game ID: <span id="gameId"></span></p>
+      <p>Invite Link: <span id="inviteLink"></span></p>
+      <p class="small">(Click to copy this link)</p>
+
+      <h4>Players Joined:</h4>
+      <div id="playerList">(No players yet)</div>
+      <button id="startGameBtn" style="margin-top:15px; display:none;">Begin Game Early</button>
+      <p class="small" id="startInfo"></p>
+    </div>
+  </div>
+
+  <script type="module">
+    /**
+     * lobby_top.html
+     * 
+     * Main entry point for the lobby system.
+     * Imports and initializes state, UI, and interactions in correct order.
+     */
+    
+
+    import state from '/static/lobby_state.js';
+    import * as minimal from '/static/lobby_minimal.js';
+    import * as interactions from '/static/lobby_interactions.js';
+    import '/static/ui_conway.js';
+
+    // Initialize UI 
+    minimal.initUI();
+    minimal.setupEventListeners();
+    interactions.initialize();  // handles URL logic
+  </script>
+</body>
+</html>

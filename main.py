@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from pytz import timezone
 
-from game_routes import router as game_router
+from game_routes_new import router as game_router
 from game_simulation import run_daily_game_updates
 
 # --- FastAPI setup ---
@@ -14,7 +14,7 @@ app = FastAPI()
 # --- Middleware ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://mydomain.com"],
+    allow_origins=["https://mrieg.com"],
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
