@@ -1,6 +1,0 @@
-fastapi==0.104.1
-uvicorn==0.24.0
-bcrypt==4.1.1
-apscheduler==3.10.4
-pytz==2023.3
-regex==1.0.0
