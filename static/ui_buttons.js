@@ -20,40 +20,6 @@ export function createButtonPanel(container) {
     submitMoves(pendingArrows);
   });
 
-  //functionality replaced by auto-rejoin and leaderboard click-to-rejoin
-  /*
-  const btnRejoin = document.createElement("button");
-  btnRejoin.textContent = "Rejoin Game";
-  btnRejoin.addEventListener("click", () => {
-      const name = prompt("Enter your name:");
-      if (!name) return;
-
-      // Look for a matching player in the current players list
-      let matchedPid = null;
-      for (const pid in players) {
-        if (players[pid].name === name) {
-          matchedPid = pid;
-          break;
-        }
-      }
-
-      if (!matchedPid) {
-        alert("No existing player with that name was found.");
-        return;
-      }
-
-      // Update client-side playerId
-      setPlayerId(matchedPid);
-
-      // Update URL parameter so reload preserves identity
-      const url = new URL(window.location.href);
-      url.searchParams.set("player_id", playerId);
-      window.history.replaceState({}, "", url);
-
-      alert(`Rejoined as ${name}`);
-      window.location.reload();
-    });
-    */
 
 
   const btnReset = document.createElement("button");
@@ -69,26 +35,20 @@ export function createButtonPanel(container) {
   btnRunTurn.textContent = "Fasttrack Next Turn (creator only)";
   btnRunTurn.addEventListener("click", async () => {
     try {
-      const response = await fetch(`${API_BASE}/apply_submitted_moves`, {
+      alert("Press ok to run game \nIf you did not mean to skip to next turn, refresh or close this tab.");
+      
+      const response = await fetch(`${API_BASE}/apply_moves_and_run_game`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ game_id: gameId, player_id: playerId })
       });
       const data = await response.json();
       if (response.ok) {
-        alert("Press ok to run game \nIf you did not mean to skip to next turn, refresh or close this tab.");
-        const nextResponse = await fetch(`${API_BASE}/run_game?game_id=${gameId}&player_id=${playerId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ game_id: gameId, player_id: playerId})
-        });
-        const nextData = await nextResponse.json();
-        if (nextResponse.ok) {alert("Success, reload page to see results");}
-        console.log("Next phase:", nextData);
-      }else{
+        alert("Success, reload page to see results");
+      } else {
         alert(`Error: ${data.error || 'Unknown error'}`);
       }
-      console.log("Apply moves:", data);
+      console.log("Apply moves and run game:", data);
     } catch (err) {
       console.error("Error:", err);
     }
@@ -96,7 +56,6 @@ export function createButtonPanel(container) {
 
   panel.appendChild(btnOther);
   panel.appendChild(btnReset);
-  // panel.appendChild(btnRejoin);
   panel.appendChild(btnRunTurn);
 
   container.appendChild(panel);

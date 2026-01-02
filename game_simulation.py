@@ -245,19 +245,3 @@ def run_js_simulation(pieces, board_before=800, board_after=700, *,
     raise RuntimeError("Unexpected simulation output: missing `pieces` or `survivors`")
 
 
-def run_daily_game_updates():
-    #TODO: REMOVE before using this for real, but this was the easiest spot to     
-    return 1/0;
-
-    print(f"Running daily game simulation at {datetime.now()}...")
-    for game_id, game in GAMES.items():
-        pieces = game["state"].get("pieces", [])
-        if not pieces:
-            continue
-        try:
-            new_state = run_js_simulation(pieces)
-            game["state"]["pieces"] = new_state["pieces"]
-            game["last_updated"] = datetime.now().isoformat()
-            print(f"✅ Updated game {game_id}")
-        except Exception as e:
-            print(f"❌ Failed to update {game_id}: {e}")

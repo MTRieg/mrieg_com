@@ -645,6 +645,42 @@ async def run_game(request: Request, req: BaseModelPlus):
         return JSONResponse({"error": f"Simulation failed: {e}"}, status_code=500)
 
 
+@router.post("/api/apply_moves_and_run_game")
+async def apply_moves_and_run_game(request: Request, req: BaseModelPlus):
+    creds = check_credentials(req, request)
+    if creds.game_id is None or creds.player_id is None:
+        return JSONResponse({"error": "Invalid credentials"}, status_code=403)
+    
+    game = GAMES.get(creds.game_id)
+    if not game:
+        return JSONResponse({"error": "Game not found"}, status_code=404)
+    
+    if creds.player_id != game.get("creator"):
+        return JSONResponse({"error": "Only the game creator can execute this action"}, status_code=403)
+    
+    if not any(p.get("submitted_turn") for p in game["players"].values()):
+        return JSONResponse({"error": "No players have submitted moves yet"}, status_code=400)
+    
+    # Step 1: Apply submitted moves
+    moves_result = await apply_submitted_moves_by_game_id(creds.game_id)
+    
+    if isinstance(moves_result, JSONResponse) and moves_result.status_code >= 400:
+        return moves_result
+    
+    # Step 2: Run the game simulation
+    try:
+        advance_simulation(game)
+        
+        return JSONResponse({
+            "status": "advanced",
+            "turn": game["state"]["turn_number"],
+            "pieces": game["state"]["pieces"]
+        }, status_code=200)
+    except Exception as e:
+        return JSONResponse({"error": f"Simulation failed: {e}"}, status_code=500)
+
+
+
 
 
 
