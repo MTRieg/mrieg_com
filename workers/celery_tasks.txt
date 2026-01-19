@@ -1,0 +1,203 @@
+Run Turn
+trigger: periodic — once every 24 hours after the game's `start_time` (schedule anchored per-game)
+inputs:
+	- `game_id` (str, required): unique game identifier
+	- `turn_number` (int): explicit turn to process 
+        (not optional for safety, in case someone manually runs a turn at the same time as the periodic scheduler)
+	- `scheduled_at` (ISO8601, optional): timestamp when the run was scheduled
+outputs:
+	- `status` ("success" | "failure")
+	- `processed_turns` (int): number of player turns processed/applied
+	- `errors` (list[str], optional): human-readable error messages when failures occur
+	- `next_schedule` (ISO8601, optional): when the next turn will be scheduled
+idempotency:
+	- Must be idempotent. Implementation should record an execution token (or last-processed `turn_number`) in a persistent store (DB or Redis) and use a distributed lock so repeated executions with identical `game_id`+`turn_number` do not apply game logic twice.
+	- If called again for the same `turn_number` and token, the task should detect prior completion and return success without side effects.
+retries/backoff:
+	- Retry on transient failures (network, DB deadlock, external API timeouts).
+	- Policy: exponential backoff with jitter; `max_attempts: 5`; initial delay: 60s; max delay: 3600s.
+	- Do NOT retry on validation errors or permanent domain errors (invalid `game_id`, corrupted game state).
+timeout:
+	- `soft_time_limit`: 120 seconds (task should attempt graceful shutdown)
+	- `time_limit` (hard): 300 seconds (forceful kill beyond this)
+resources/dependencies:
+	- Redis: for distributed locks and short-lived caches
+	- Primary game DB: to read/update game state and persist results
+	- Game simulation service or in-process simulation module (CPU work)
+	- Optional: external services (notifications, webhooks) invoked after a successful turn
+	- Concurrency considerations: bound concurrency per-game (single worker for a game) and limit parallelism across games to avoid CPU spikes
+result backend needs and visibility:
+	- Persist final status and summary to the primary DB (recommended) so the app can show the last-run state without querying Celery backend.
+	- Optionally store Celery task result in the result backend for short-term debugging; set `result_expires` to a reasonable TTL (e.g., 7 days).
+	- Expose last-run status in the game record and an audit log for troubleshooting.
+priority/queue:
+	- Queue: `game_turns`
+	- Priority: medium (normal). Use higher priority only for catch-up/rescue runs.
+	- Expected frequency: once per game per 24 hours (but may be triggered ad-hoc for re-runs)
+
+Start Game:
+trigger: manual or scheduled for when start_time is reached
+inputs:
+    - `game_id` (str, required): unique game identifier
+    - `scheduled_at` (ISO8601, optional): timestamp when the start was scheduled
+outputs:
+    - `status` ("success" | "failure")
+    - `errors` (list[str], optional): human-readable error messages when failures occur
+idempotency:
+    - Must be idempotent. Implementation should check if the game is already started before proceeding. If the game is already in a started state, the task should return success without side effects.
+retries/backoff:
+    - Retry on transient failures (network, DB deadlock, external API timeouts).
+    - Policy: exponential backoff with jitter; `max_attempts: 5`; initial delay: 60s; max delay: 3600s.
+    - Do NOT retry on validation errors or permanent domain errors (invalid `game_id`, game already started).
+timeout:
+    - `soft_time_limit`: 60 seconds (task should attempt graceful shutdown)
+    - `time_limit` (hard): 180 seconds (forceful kill beyond this)
+resources/dependencies:
+    - Primary game DB: to read/update game state
+    - Game simulation service or in-process simulation module (CPU work)
+    - Optional: external services (notifications, webhooks) invoked after a successful start
+    - Concurrency considerations: ensure that multiple instances of this task do not run simultaneously for the same game to avoid race conditions
+result backend needs and visibility:
+    - Persist final status and summary to the primary DB so the app can show the last-run state without querying Celery backend.
+    - Optionally store Celery task result in the result backend for short-term debugging; set `result_expires` to a reasonable TTL (e.g., 7 days).
+    - Expose last-run status in the game record for troubleshooting.
+priority/queue:
+    - Queue: `game_management`
+    - Priority: high (starting a game is time-sensitive)
+
+repopulate unused game IDs
+trigger: periodic — once every 6 hours
+inputs: none
+outputs:
+    - `status` ("success" | "failure")
+    - `refreshed_count` (int): number of unused game IDs refreshed
+    - `errors` (list[str], optional): human-readable error messages when failures occur
+idempotency:
+    - Must be idempotent. The task should safely update the `last_refreshed` timestamp for each unused game ID without causing duplicates or inconsistencies.
+retries/backoff:
+    - Retry on transient failures (network, DB deadlock, external API timeouts).
+    - Policy: exponential backoff with jitter; `max_attempts: 5`; initial delay: 60s; max delay: 3600s.
+    - Do NOT retry on validation errors or permanent domain errors.
+timeout:
+    - `soft_time_limit`: 60 seconds (task should attempt graceful shutdown)
+    - `time_limit` (hard): 180 seconds (forceful kill beyond this)
+resources/dependencies:
+    - Primary game DB: to read/update unused game IDs
+    - Concurrency considerations: ensure that multiple instances of this task do not run simultaneously to avoid race conditions
+result backend needs and visibility:
+    - Persist final status and summary to the primary DB so the app can show the last-run state without querying Celery backend.
+    - Optionally store Celery task result in the result backend for short-term debugging; set `result_expires` to a reasonable TTL (e.g., 7 days).
+    - Expose last-run status in a dedicated monitoring record for troubleshooting.
+priority/queue:
+    - Queue: `maintenance`
+    - Priority: low (background maintenance task)
+
+clear stale leases on unused game IDs
+trigger: periodic — once every 1 hour
+inputs: none
+outputs:
+    - `status` ("success" | "failure")
+    - `cleared_count` (int): number of stale leases cleared
+    - `errors` (list[str], optional): human-readable error messages when failures occur
+idempotency:
+    - Must be idempotent. The task should safely clear stale leases without causing inconsistencies.
+retries/backoff:
+    - Retry on transient failures (network, DB deadlock, external API timeouts).
+    - Policy: exponential backoff with jitter; `max_attempts: 5`; initial delay: 60s; max delay: 3600s.
+    - Do NOT retry on validation errors or permanent domain errors.
+timeout:
+    - `soft_time_limit`: 60 seconds (task should attempt graceful shutdown)
+    - `time_limit` (hard): 180 seconds (forceful kill beyond this)
+resources/dependencies:
+    - Primary game DB: to read/update unused game IDs
+    - Concurrency considerations: ensure that multiple instances of this task do not run simultaneously to avoid race conditions
+result backend needs and visibility:
+    - Persist final status and summary to the primary DB so the app can show the last-run state without querying Celery backend.
+    - Optionally store Celery task result in the result backend for short-term debugging; set `result_expires` to a reasonable TTL (e.g., 7 days).
+    - Expose last-run status in a dedicated monitoring record for troubleshooting.
+priority/queue:
+    - Queue: `maintenance`
+    - Priority: low (background maintenance task)
+
+delete expired session tokens:
+trigger: periodic — once every 1 hour
+inputs: none
+outputs:
+    - `status` ("success" | "failure")
+    - `deleted_count` (int): number of expired session tokens deleted
+    - `errors` (list[str], optional): human-readable error messages when failures occur
+idempotency:
+    - Must be idempotent. The task should safely delete expired session tokens without causing inconsistencies.
+retries/backoff:
+    - Retry on transient failures (network, DB deadlock, external API timeouts).
+    - Policy: exponential backoff with jitter; `max_attempts: 5`; initial delay: 60s; max delay: 3600s.
+    - Do NOT retry on validation errors or permanent domain errors.
+timeout:
+    - `soft_time_limit`: 60 seconds (task should attempt graceful shutdown)
+    - `time_limit` (hard): 180 seconds (forceful kill beyond this)
+resources/dependencies:
+    - Primary game DB: to read/delete session tokens
+    - Concurrency considerations: ensure that multiple instances of this task do not run simultaneously to avoid race conditions
+result backend needs and visibility:
+    - Persist final status and summary to the primary DB so the app can show the last-run state without querying Celery backend.
+    - Optionally store Celery task result in the result backend for short-term debugging; set `result_expires` to a reasonable TTL (e.g., 7 days).
+    - Expose last-run status in a dedicated monitoring record for troubleshooting.
+priority/queue:
+    - Queue: `maintenance`
+    - Priority: low (background maintenance task)
+
+delete games that have not been accessed in over 30 days
+trigger: periodic — once every 24 hours
+inputs: none
+outputs:
+    - `status` ("success" | "failure")
+    - `deleted_count` (int): number of stale games deleted
+    - `errors` (list[str], optional): human-readable error messages when failures occur
+idempotency:
+    - Must be idempotent. The task should safely delete stale games without causing inconsistencies.
+retries/backoff:
+    - Retry on transient failures (network, DB deadlock, external API timeouts).
+    - Policy: exponential backoff with jitter; `max_attempts: 5`; initial delay: 60s; max delay: 3600s.
+    - Do NOT retry on validation errors or permanent domain errors.
+timeout:
+    - `soft_time_limit`: 120 seconds (task should attempt graceful shutdown)
+    - `time_limit` (hard): 300 seconds (forceful kill beyond this)
+resources/dependencies:
+    - Primary game DB: to read/delete stale games
+    - Concurrency considerations: ensure that multiple instances of this task do not run simultaneously to avoid race conditions
+result backend needs and visibility:
+    - Persist final status and summary to the primary DB so the app can show the last-run state without querying Celery backend.
+    - Optionally store Celery task result in the result backend for short-term debugging; set `result_expires` to a reasonable TTL (e.g., 7 days).
+    - Expose last-run status in a dedicated monitoring record for troubleshooting.
+priority/queue:
+    - Queue: `maintenance`
+    - Priority: low (background maintenance task)
+
+delete players whose accounts were made over 30 days ago and who are not associated with any active games
+trigger: periodic — once every 24 hours
+inputs: none
+outputs:
+    - `status` ("success" | "failure")
+    - `deleted_count` (int): number of stale players deleted
+    - `errors` (list[str], optional): human-readable error messages when failures occur
+idempotency:
+    - Must be idempotent. The task should safely delete stale players without causing inconsistencies.
+retries/backoff:
+    - Retry on transient failures (network, DB deadlock, external API timeouts).
+    - Policy: exponential backoff with jitter; `max_attempts: 5`; initial delay: 60s; max delay: 3600s.
+    - Do NOT retry on validation errors or permanent domain errors.
+timeout:
+    - `soft_time_limit`: 120 seconds (task should attempt graceful shutdown)
+    - `time_limit` (hard): 300 seconds (forceful kill beyond this)
+resources/dependencies:
+    - Primary game DB: to read/delete stale players
+    - Concurrency considerations: ensure that multiple instances of this task do not run simultaneously to avoid race conditions
+result backend needs and visibility:
+    - Persist final status and summary to the primary DB so the app can show the last-run state without querying Celery backend.
+    - Optionally store Celery task result in the result backend for short-term debugging; set `result_expires` to a reasonable TTL (e.g., 7 days).
+    - Expose last-run status in a dedicated monitoring record for troubleshooting.
+priority/queue:
+    - Queue: `maintenance`
+    - Priority: low (background maintenance task)
+
+

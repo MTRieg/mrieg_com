@@ -1,0 +1,67 @@
+pip-requirements
+start.sh            ->  scripts/start_api.sh, 
+                        scripts/start_cloudflare.sh, 
+                        scripts/start_worker.sh
+
+scripts/start_api.sh         ->  ./venv/bin/activate
+                                 main.py
+scripts/start_worker.sh      ->  ./venv/bin/activate
+                                 workers/celery_app.py
+scripts/start_cloudflare.sh  ->  (runs cloudflared only)
+
+main.py              ->  routes/games.py,
+                         routes/players.py,
+                         routes/auth.py,
+                         routes/debug.py,
+                         stores/init_stores,
+                         config.py
+
+routes/games.py      ->  models/,
+                         stores/,
+                         utils/cookies.py,
+                         routes/games_helpers.py
+
+routes/players.py    ->  stores/,
+                         models/,
+                         routes/auth.py
+
+routes/auth.py       ->  stores/,
+                         models/
+
+routes/debug.py      ->  config.py
+
+routes/games_helpers.py -> stores/,
+                          services/game_simulation.py
+
+stores/__init__.py   ->  stores/game_store.py,
+                         stores/auth_store.py,
+                         stores/sqlite_game_store.py,
+                         stores/sqlite_auth_store.py
+
+stores/game_store.py ->  (abstract base, no internal imports)
+stores/auth_store.py ->  (abstract base, no internal imports)
+
+stores/sqlite_game_store.py -> services/game_simulation.py,
+                              stores/game_store.py
+
+stores/sqlite_auth_store.py -> stores/auth_store.py
+
+services/game_simulation.py -> stores/game_store.py (for typing)
+
+workers/celery_app.py -> stores/init_stores,
+                        config.py
+
+workers/tasks.py      -> stores/game_store.py,
+                        stores/auth_store.py,
+                        workers/task_helpers.py,
+                        workers/celery_app.py,
+                        routes/games_helpers.py
+
+models/__init__.py    -> models/api_models.py,
+                        models/domain_models.py
+
+models/api_models.py  -> (no internal imports)
+models/domain_models.py -> (no internal imports)
+
+utils/cookies.py      -> (no internal imports)
+utils/validation.py   -> (no internal imports)

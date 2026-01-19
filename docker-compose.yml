@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    user: "0:0"
+    ports:
+      - "8000:8000"
+    environment:
+      - MRIEG_DB_PATH=/app/dev.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: bash -c "python scripts/init_sqlite.py /app/dev.db db/schema.sql && python scripts/verify_db.py /app/dev.db && bash scripts/start_api.sh"
+
+  worker:
+    build: .
+    user: "1000:1000"
+    environment:
+      - MRIEG_DB_PATH=/app/dev.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: bash scripts/start_worker.sh

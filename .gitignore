@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+
+
+# Virtual environments
+venv/
+
+# IDE
+.vscode/
+
+
+# Databases
+*.db
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.db-wal
+*.db-shm
+dev.db
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Application-specific
+todo.txt
+error.txt
+test_data/
+
+#deprecated
+deprecated_start.sh

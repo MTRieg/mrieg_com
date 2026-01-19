@@ -1,0 +1,11 @@
+fastapi==0.104.1
+uvicorn==0.24.0
+aiosqlite==0.22.1
+redis==7.1.0
+pydantic==2.12.5
+bcrypt==4.1.1
+regex==2025.11.3
+celery==5.6.2
+kombu==5.6.2
+APScheduler==3.10.4
+python-dateutil==2.9.0.post0
