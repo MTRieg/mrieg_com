@@ -3,14 +3,18 @@
 # Define the project directory
 PROJECT_DIR="$HOME/Documents/Knockout/knockoutJS/Mrieg_com_fastAPI_v0_3"
 
-# Check if build flag is provided
+# Check if build/preserve flags are provided
 BUILD_FLAG=""
+PRESERVE_DATA=false
 for arg in "$@"; do
 	case "$arg" in
 		build|--build|-b)
 			BUILD_FLAG="--build"
 			echo "Building Docker images..."
-			break
+			;;
+		prod|--prod|--production|--preserve|-p)
+			PRESERVE_DATA=true
+			echo "Production mode: preserving existing data..."
 			;;
 	esac
 done
@@ -29,9 +33,17 @@ if command -v docker-compose &> /dev/null; then
 	cd "$PROJECT_DIR"
 	docker-compose down --remove-orphans 2>/dev/null || true
 	
-	# Delete database files for fresh initialization
-	# Clean up all database files including WAL and SHM to avoid lock issues
-	rm -f dev.db db.sqlite3 db.sqlite3-journal dev.db-wal dev.db-shm db.sqlite3-wal db.sqlite3-shm
+	# Only delete database and clear data in development mode (default)
+	if [ "$PRESERVE_DATA" = false ]; then
+		echo "Development mode: clearing database files and Redis queues..."
+		# Clean up all database files including WAL and SHM to avoid lock issues
+		rm -f dev.db db.sqlite3 db.sqlite3-journal dev.db-wal dev.db-shm db.sqlite3-wal db.sqlite3-shm
+		# Note: Redis data is automatically cleared when docker-compose containers stop
+		# (no volume persistence configured in development mode)
+	else
+		echo "Production mode: preserving database and Redis queues..."
+		# In production mode, data persists across restarts if volumes are configured
+	fi
 	
 	cd - > /dev/null
 fi
