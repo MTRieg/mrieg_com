@@ -38,8 +38,8 @@ if command -v docker-compose &> /dev/null; then
 		echo "Development mode: clearing database files and Redis queues..."
 		# Clean up all database files including WAL and SHM to avoid lock issues
 		rm -f dev.db db.sqlite3 db.sqlite3-journal dev.db-wal dev.db-shm db.sqlite3-wal db.sqlite3-shm
-		# Note: Redis data is automatically cleared when docker-compose containers stop
-		# (no volume persistence configured in development mode)
+		# Remove Redis volume to clear task queues
+		docker volume rm redis_data 2>/dev/null || true
 	else
 		echo "Production mode: preserving database and Redis queues..."
 		# In production mode, data persists across restarts if volumes are configured

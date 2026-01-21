@@ -159,3 +159,35 @@ WHEN (SELECT creator_player_id FROM games WHERE game_id = OLD.game_id) = OLD.pla
 BEGIN
     UPDATE games SET creator_player_id = NULL WHERE game_id = OLD.game_id;
 END;
+
+-- Enforce that game_settings must be created when a game is created
+CREATE TRIGGER IF NOT EXISTS games_after_insert_check_settings
+AFTER INSERT ON games
+BEGIN
+    SELECT RAISE(ABORT, 'game_settings must be created with the game')
+    WHERE NOT EXISTS (SELECT 1 FROM game_settings WHERE game_id = NEW.game_id);
+END;
+
+-- Enforce that game_state must be created when a game is created
+CREATE TRIGGER IF NOT EXISTS games_after_insert_check_state
+AFTER INSERT ON games
+BEGIN
+    SELECT RAISE(ABORT, 'game_state must be created with the game')
+    WHERE NOT EXISTS (SELECT 1 FROM game_state WHERE game_id = NEW.game_id);
+END;
+
+-- Prevent deletion of game settings to maintain the invariant that every game has settings
+CREATE TRIGGER IF NOT EXISTS game_settings_before_delete_check_game_exists
+BEFORE DELETE ON game_settings
+BEGIN
+    SELECT RAISE(ABORT, 'cannot delete game settings; every game must have settings')
+    WHERE EXISTS (SELECT 1 FROM games WHERE game_id = OLD.game_id);
+END;
+
+-- Prevent deletion of game state to maintain the invariant that every game has state
+CREATE TRIGGER IF NOT EXISTS game_state_before_delete_check_game_exists
+BEFORE DELETE ON game_state
+BEGIN
+    SELECT RAISE(ABORT, 'cannot delete game state; every game must have state')
+    WHERE EXISTS (SELECT 1 FROM games WHERE game_id = OLD.game_id);
+END;

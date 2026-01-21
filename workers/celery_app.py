@@ -15,6 +15,11 @@ import logging
 from stores import init_stores
 import config
 
+try:
+    from celery_beat_redis import RedisScheduler
+except ImportError:
+    RedisScheduler = None
+
 # Initialize Celery app
 app = Celery("game_server")
 
@@ -70,6 +75,15 @@ app.conf.task_queues = (
 app.conf.task_default_queue = "default"
 app.conf.task_default_exchange = "default"
 app.conf.task_default_routing_key = "default"
+
+# Configure Redis-backed Beat scheduler for production use
+# The scheduler state is stored in Redis (same as task queues)
+if RedisScheduler:
+    app.conf.beat_scheduler = RedisScheduler
+    app.conf.redis_scheduler_url = broker_url
+    app.conf.redis_scheduler_key = "celery:beat:schedule"
+else:
+    logger.warning("celery-beat-redis not installed; Beat will use file-based scheduler")
 
 # Periodic task schedules (Celery Beat)
 app.conf.beat_schedule = {

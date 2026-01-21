@@ -5,6 +5,9 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --dir /data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -42,3 +45,21 @@ services:
     volumes:
       - .:/app
     command: bash scripts/start_worker.sh
+
+  beat:
+    build: .
+    user: "1000:1000"
+    environment:
+      - MRIEG_DB_PATH=/app/dev.db
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: bash scripts/start_beat.sh
+
+volumes:
+  redis_data:
