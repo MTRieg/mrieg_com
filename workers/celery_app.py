@@ -8,17 +8,16 @@ print(f"[CELERY_INIT] celery_app.py starting import, CELERY_BROKER_URL={os.geten
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# Configure timezone BEFORE importing anything else
+import pytz
+os.environ['TZ'] = 'UTC'
+
 from celery import Celery
 from celery.schedules import crontab
 from kombu import Exchange, Queue
 import logging
 from stores import init_stores
 import config
-
-try:
-    from celery_beat_redis import RedisScheduler
-except ImportError:
-    RedisScheduler = None
 
 # Initialize Celery app
 app = Celery("game_server")
@@ -39,7 +38,7 @@ app.config_from_object({
     "task_serializer": "json",
     "accept_content": ["json"],
     "result_serializer": "json",
-    "timezone": "UTC",
+    "timezone": pytz.UTC,
     "enable_utc": True,
     "task_acks_late": True,
     "worker_prefetch_multiplier": 1,
@@ -76,14 +75,15 @@ app.conf.task_default_queue = "default"
 app.conf.task_default_exchange = "default"
 app.conf.task_default_routing_key = "default"
 
-# Configure Redis-backed Beat scheduler for production use
-# The scheduler state is stored in Redis (same as task queues)
-if RedisScheduler:
-    app.conf.beat_scheduler = RedisScheduler
-    app.conf.redis_scheduler_url = broker_url
-    app.conf.redis_scheduler_key = "celery:beat:schedule"
-else:
-    logger.warning("celery-beat-redis not installed; Beat will use file-based scheduler")
+# Configure SQLAlchemy-backed Beat scheduler for production persistence
+# The scheduler state is stored in a database (survives service restarts)
+scheduler_db_url = os.getenv("CELERY_SCHEDULER_DB_URL", "sqlite:///celery_beat_schedule.db")
+
+app.conf.beat_scheduler = 'celery_sqlalchemy_scheduler.schedulers:DatabaseScheduler'
+app.conf.sqlalchemy_engine_options = {
+    'url': scheduler_db_url,
+}
+app.conf.sqlalchemy_session_options = {}
 
 # Periodic task schedules (Celery Beat)
 app.conf.beat_schedule = {

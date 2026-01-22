@@ -10,7 +10,6 @@ export MRIEG_DB_PATH="${MRIEG_DB_PATH:-./dev.db}"
 # In Docker, 'localhost' refers to the container itself, not other services
 # Use 'redis' as the hostname (docker-compose service name)
 
-# start beat scheduler with Redis-backed persistence
+# start beat scheduler with database-backed persistence
 exec celery -A workers.celery_app beat \
-  --loglevel=info \
-  --scheduler celery_beat_redis:RedisScheduler
+  --loglevel=info

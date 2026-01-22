@@ -37,7 +37,7 @@ if command -v docker-compose &> /dev/null; then
 	if [ "$PRESERVE_DATA" = false ]; then
 		echo "Development mode: clearing database files and Redis queues..."
 		# Clean up all database files including WAL and SHM to avoid lock issues
-		rm -f dev.db db.sqlite3 db.sqlite3-journal dev.db-wal dev.db-shm db.sqlite3-wal db.sqlite3-shm
+		rm -f dev.db db.sqlite3 db.sqlite3-journal dev.db-wal dev.db-shm db.sqlite3-wal db.sqlite3-shm celery_beat_schedule.db
 		# Remove Redis volume to clear task queues
 		docker volume rm redis_data 2>/dev/null || true
 	else
