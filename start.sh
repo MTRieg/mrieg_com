@@ -6,15 +6,26 @@ PROJECT_DIR="$HOME/Documents/Knockout/knockoutJS/Mrieg_com_fastAPI_v0_3"
 # Check if build/preserve flags are provided
 BUILD_FLAG=""
 PRESERVE_DATA=false
-for arg in "$@"; do
-	case "$arg" in
+TUNNEL_NAME="experimental_tunnel"
+while [[ $# -gt 0 ]]; do
+	case "$1" in
 		build|--build|-b)
 			BUILD_FLAG="--build"
 			echo "Building Docker images..."
+			shift
 			;;
 		prod|--prod|--production|--preserve|-p)
 			PRESERVE_DATA=true
 			echo "Production mode: preserving existing data..."
+			shift
+			;;
+		-tname|--tunnel-name|-t)
+			TUNNEL_NAME="$2"
+			echo "Using tunnel: $TUNNEL_NAME"
+			shift 2
+			;;
+		*)
+			shift
 			;;
 	esac
 done
@@ -72,7 +83,7 @@ pids+=($!)
 
 # Start Cloudflare Tunnel
 xfce4-terminal --hold -T "Cloudflare Tunnel" \
-	--command "bash -c 'cloudflared tunnel run mytunnel; exec bash'" &
+	--command "bash -c 'cloudflared tunnel run $TUNNEL_NAME; exec bash'" &
 pids+=($!)
 
 # Wait for all processes

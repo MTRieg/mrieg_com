@@ -114,7 +114,7 @@ export async function initialize() {
   
   if(playerId) {state.playerId = playerId;}
   minimal.statusControl.status = status;
-  minimal.updateGameInfo(existingGameId, `mrieg.com/games/knockout?game_id=${existingGameId}`, gameData.state.next_turn_time);
+  minimal.updateGameInfo(existingGameId, `${window.location.hostname}/games/knockout?game_id=${existingGameId}`, gameData.state.next_turn_time);
   minimal.updatePlayerList(gameData.players, state.playerId);
   
 }
@@ -376,7 +376,7 @@ async function viewExistingGame(gameId, password) {
 
   // Change status to player setup plus show players
   minimal.statusControl.status = "pi";
-  minimal.updateGameInfo(gameId, `mrieg.com/games/knockout?game_id=${gameId}`, data.state.next_turn_time);
+  minimal.updateGameInfo(gameId, `${window.location.hostname}/games/knockout?game_id=${gameId}`, data.state.next_turn_time);
   minimal.updatePlayerList(data.players, state.playerId);
 }
 
@@ -409,7 +409,7 @@ async function registerWithExistingGame(gameId, player_id, password) {
 
     //change status to show players
     minimal.statusControl.status = "i";
-    minimal.updateGameInfo(gameId, `mrieg.com/games/knockout?game_id=${gameId}`, data.state.next_turn_time)
+    minimal.updateGameInfo(gameId, `${window.location.hostname}/games/knockout?game_id=${gameId}`, data.state.next_turn_time)
     startPolling(gameId)
 
 
@@ -453,7 +453,7 @@ async function loginWithExistingGame(gameId, username, password) {
 
     //change status to show players
     minimal.statusControl.status = "i";
-    minimal.updateGameInfo(gameId, `mrieg.com/games/knockout?game_id=${gameId}`, data.state.next_turn_time)
+    minimal.updateGameInfo(gameId, `${window.location.hostname}/games/knockout?game_id=${gameId}`, data.state.next_turn_time)
     startPolling(gameId)
   } else {
     alert("Failed to join game.");

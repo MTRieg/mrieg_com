@@ -85,6 +85,8 @@ class SqliteGameStore(GameStore):
         logger.info(f"[STORE] Creating game: {game_id}")
         
         await self.db.execute("BEGIN IMMEDIATE")
+        # Defer FK checks so we can insert child rows before parent; checked at commit
+        await self.db.execute("PRAGMA defer_foreign_keys = ON")
         # Check if game already exists while holding the lock
         cur_check = await self.db.execute(
             "SELECT 1 FROM games WHERE game_id = ?",
@@ -103,11 +105,8 @@ class SqliteGameStore(GameStore):
         )
         
         try:
-            # Insert core game row
-            await self.db.execute(
-                "INSERT INTO games (game_id, creator_player_id, start_time, created_at) VALUES (?, ?, ?, ?)",
-                (game_id, None, start_time, now),
-            )
+            # Insert child tables first (game_settings, game_state) before the parent
+            # so that AFTER INSERT triggers on `games` find them already present.
 
             # Create game settings
             await self.db.execute(
@@ -126,6 +125,12 @@ class SqliteGameStore(GameStore):
                 VALUES (?, 0, ?, ?)
                 """,
                 (game_id, now, start_time),
+            )
+
+            # Insert core game row (triggers check for settings/state which now exist)
+            await self.db.execute(
+                "INSERT INTO games (game_id, creator_player_id, start_time, created_at) VALUES (?, ?, ?, ?)",
+                (game_id, None, start_time, now),
             )
 
             # If caller supplied a password, insert it using the auth helper

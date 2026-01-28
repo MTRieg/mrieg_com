@@ -15,7 +15,7 @@ if (background) {
     import("/static/ui_inputs.js")
 }
 
-const API_BASE = "https://mrieg.com/games/api";
+const API_BASE = `https://${window.location.hostname}/games/api`;
 const urlParams = new URLSearchParams(window.location.search);
 
 // Game constants

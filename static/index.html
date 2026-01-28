@@ -87,7 +87,7 @@
 
       // --- Send HTTP message to your FastAPI server ---
       // Adjust the URL to match your FastAPI endpoint
-      fetch('https://mrieg.com/rickroll-hit', {
+      fetch(`https://${window.location.hostname}/rickroll-hit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event: 'rickroll_clicked', timestamp: Date.now() })

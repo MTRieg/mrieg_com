@@ -3,8 +3,14 @@
 This file creates the FastAPI app and mounts route modules. Endpoints
 are implemented as stubs in `routes/*` and will be filled in later.
 """
+import mimetypes
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+
+# Ensure JavaScript files are served with the correct MIME type
+mimetypes.add_type("application/javascript", ".js")
+mimetypes.add_type("application/javascript", ".mjs")
 
 from routes import games as games_routes
 from routes import players as players_routes
