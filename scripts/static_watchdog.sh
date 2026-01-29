@@ -8,7 +8,7 @@
 # note that this should only exist temporarily; if the problem doesn't happen again I'll remove it, but
 # there's also the chance that "nothing is as permanent as a temporary solution that works" keeps this alive
 
-
+# also, the config values here, especially tunnel name and URLs, need to be adjusted for different deployments
 
 set -u
 
