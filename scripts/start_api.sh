@@ -38,4 +38,8 @@ WORKERS=$(nproc)
 # alembic upgrade head
 
 # start the ASGI server bound to 0.0.0.0:8000 using Uvicorn workers
-exec uvicorn main:app --host 0.0.0.0 --port 8000 --workers "$WORKERS" --log-level info
+# Added timeout-keep-alive to prevent stale connections from consuming workers
+# Added limit-max-requests to periodically recycle workers and prevent memory/fd leaks
+exec uvicorn main:app --host 0.0.0.0 --port 8000 --workers "$WORKERS" --log-level info \
+	--timeout-keep-alive 65 \
+	--limit-max-requests 10000
