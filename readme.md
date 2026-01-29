@@ -1,12 +1,13 @@
-This is the code to my website, which if you're reading this message should be available at mrieg.com. 
+This is the code to my website, which if you're reading this message should be available at mrieg.com.
 
-The things that I have established that were not included with this github repo are:
-cloudflare account, tunnels, DNS records showing that I own mrieg.com, etc
-Startup scripts that call start.sh with various combinations of flags
-A computer running Linux Mint to run the server. (hence why start.sh creates xfce4 terminals)
-  (yes, there are more efficient linux distros, but I still want there to be a usable ui in the os, even for the server)
-node packages, python libraries, docker, and other code that needs to be installed from their source.
-  (some of them happen automatically with the build flag)
+## Things not included in this repo
+
+- Cloudflare account, tunnels, DNS records showing that I own mrieg.com, etc.
+- Startup scripts that call `start.sh` with various combinations of flags
+- A computer running Linux Mint to run the server (hence why `start.sh` creates xfce4 terminals)
+  - Yes, there are more efficient Linux distros, but I still want there to be a usable UI in the OS, even for the server
+- Node packages, Python libraries, Docker, and other code that needs to be installed from their source
+  - Some of them happen automatically with the build flag
 
 ## Local Testing (Linux)
 
