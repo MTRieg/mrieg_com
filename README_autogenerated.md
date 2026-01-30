@@ -208,44 +208,7 @@ SQLite database (`dev.db`) stores:
 - **player_passwords**: Hashed player credentials
 
 **Locking Strategy:**
-- Game-level locks (for turn advancement) stored in `game_state.locked_by`
-- Player-level locks (for concurrent submissions) stored in `game_players.locked_by`
-- Locks use internal UUIDs to prevent cross-process conflicts
-- Turn number validation prevents stale scheduled tasks from advancing outdated turns
-
-## Configuration
-
-Edit `config.py` to customize:
-```python
-REDIS_URL = "redis://redis:6379/0"  # Celery message broker
-DB_PATH = "dev.db"                   # SQLite database location
-NODE_PATH = "/usr/bin/node"          # Node.js binary path
-CELERY_BROKER_URL = "redis://redis:6379/0"
-```
-
-For Docker, Redis service is automatically available at `redis:6379`
-
-## Common Issues
-
-### "Database is locked"
-- Multiple processes accessing SQLite simultaneously
-- **Solution**: Ensure only one API and one Worker are running; restart containers if deadlock occurs
-
-### "cannot import name 'ApplyMovesAndRunGameRequest'"
-- Models not properly exported
-- **Solution**: Ensure `models/__init__.py` exports the model in `__all__`
-
-### "Could not connect to Redis"
-- Redis service not running or on wrong port
-- **Solution**: Check `docker-compose.yml` for service definition or start Redis locally: `redis-server`
-
-### Physics simulation not running (Node.js not found)
-- Node.js binary not in expected location
-- **Solution**: Update `NODE_PATH` in `config.py` or check `start_api.sh` for binary detection
-
-### Port 8000 already in use
-- Another service using the port
-- **Solution**: `lsof -i :8000` to find process, or change port in `docker-compose.yml` / `main.py`
+- Turn number validation prevents stale scheduled tasks from advancing 
 
 ## Testing
 
