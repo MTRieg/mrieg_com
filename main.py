@@ -18,6 +18,7 @@ from routes import games as games_routes
 from routes import players as players_routes
 from routes import auth as auth_routes
 from routes import debug as debug_routes
+from routes import nongame as nongame_routes
 from stores import init_stores
 import config
 import logging
@@ -58,6 +59,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.mount("/static", StaticFiles(directory="static", html=False, follow_symlink=False), name="static")
 
 # Register routers (prefixes are adjustable as development progresses)
+app.include_router(nongame_routes.router)  # Root route for index.html
 app.include_router(games_routes.router, prefix="/games")
 app.include_router(players_routes.router, prefix="/games")
 app.include_router(auth_routes.router, prefix="/games")

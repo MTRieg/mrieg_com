@@ -13,10 +13,12 @@ from .games import router as games_router
 from .players import router as players_router
 from .auth import router as auth_router
 from .debug import router as debug_router
+from .nongame import router as nongame_router
 
 __all__ = [
 	"games_router",
 	"players_router",
 	"auth_router",
 	"debug_router",
+	"nongame_router",
 ]
